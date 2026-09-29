@@ -66,15 +66,26 @@ The MVP consists of:
                │  ┌───────────────────┐      │
                │  │  ON-DEVICE ONLY   │      │
                │  │  ┌─────────────┐  │      │
+               │  │  │ Layer 1:    │  │      │
                │  │  │ MediaPipe   │  │      │
                │  │  │ Pose Engine │  │      │
-               │  │  └─────────────┘  │      │
+               │  │  └──────┬──────┘  │      │
+               │  │         ▼         │      │
                │  │  ┌─────────────┐  │      │
-               │  │  │ Exercise    │  │      │
-               │  │  │ Analyzers   │  │      │
-               │  │  └─────────────┘  │      │
+               │  │  │ Preprocess  │  │      │
+               │  │  │ & Features  │  │      │
+               │  │  └──────┬──────┘  │      │
+               │  │         ▼         │      │
                │  │  ┌─────────────┐  │      │
-               │  │  │ Rep Counter │  │      │
+               │  │  │ Layer 2:    │  │      │
+               │  │  │ Custom AI   │  │      │
+               │  │  │ Model       │  │      │
+               │  │  └──────┬──────┘  │      │
+               │  │         ▼         │      │
+               │  │  ┌─────────────┐  │      │
+               │  │  │ Layer 3:    │  │      │
+               │  │  │ Deterministic  │      │
+               │  │  │ State Machine  │      │
                │  │  └─────────────┘  │      │
                │  └───────────────────┘      │
                │                             │
@@ -108,36 +119,47 @@ The MVP consists of:
                     └───────────────────┘
 ```
 
-### Data Flow — Core Workout Loop
+### Data Flow — On-Device Two-Layer AI Workout Pipeline
 
 ```
-Camera Frame (mobile only)
+Camera Frame (mobile device only)
       │
       ▼
-MediaPipe Pose Landmarker  ──→  33 body landmarks (x, y, z, visibility)
+Pretrained Pose Estimator (MediaPipe Pose Landmarker)
+──→ Produces 33 3D normalized body landmarks (x, y, z, visibility)
       │
       ▼
-Temporal Smoothing  ──→  Reduces jitter across frames
+Preprocessing & Normalization (packages/pose-engine)
+──→ Temporal EMA smoothing (jitter eradication)
+──→ Mid-hip translation centering & torso-scale normalization
       │
       ▼
-Exercise Analyzer  ──→  Joint angle calculation, state machine transitions
+Biomechanical Feature Extraction (packages/pose-engine)
+──→ Computes joint angles (knees, hips, elbows, shoulders) & normalized offsets
       │
       ▼
-Rep State Machine  ──→  STANDING → DESCENDING → BOTTOM → ASCENDING → STANDING
+Custom Trained AI Model (Layer 2 - On-Device TFLite/ONNX)
+──→ Classifies exercise type (Squat / Push-up / Plank / Idle) & movement phase
       │
       ▼
-Form Feedback  ──→  "Go lower", "Keep torso upright", "Good rep"
+Deterministic Exercise State Machine Engine (packages/pose-engine)
+──→ Tracks validated biomechanical state transitions:
+    e.g. Squat: STANDING → DESCENDING → BOTTOM → ASCENDING → STANDING
       │
       ▼
-Local Workout State  ──→  Stored on device (offline-capable)
+Rep Counting / Hold Timing & Real-Time Form Feedback
+──→ "Good depth", "Keep torso upright", "Rep counted"
       │
       ▼
-Sync to Backend  ──→  POST /workouts (metrics only, NO video)
+Local Workout State (Zustand & offline storage)
       │
       ▼
-Backend Processing  ──→  XP calculation, badge checks, streak update,
-                          heritage progress, leaderboard update,
-                          adaptive goal recalculation
+Backend Synchronization (POST /workouts - metrics ONLY, ZERO raw video)
+      │
+      ▼
+Shared NestJS Backend Processing
+──→ Server-authoritative XP, badge evaluation, streak update,
+    heritage journey progress, leaderboard recalculation
 ```
 
 ---
@@ -214,6 +236,17 @@ fit-odyssey/
 │   ├── pose-engine/
 │   └── config/
 │
+├── ml/                               # Dedicated ML Workspace (Offline Model Training)
+│   ├── dataset/                      # Dataset manifests & subject-level split definitions
+│   ├── preprocessing/                # Landmark extraction, normalization, feature engineering
+│   ├── training/                     # Dataset loaders, model definitions (MLP/CNN/GRU), train loop
+│   ├── evaluation/                   # Metrics, confusion matrix, diagnostics
+│   ├── inference/                    # Local Python predictor testbed
+│   ├── export/                       # Mobile serialization (TFLite/ONNX) + metadata packaging
+│   ├── models/                       # Checkpoints & exported model binaries
+│   ├── notebooks/                    # Exploratory data analysis notebooks
+│   └── README.md
+│
 ├── prisma/
 │   ├── schema.prisma
 │   ├── seed.ts
@@ -221,6 +254,7 @@ fit-odyssey/
 │
 ├── docs/
 │   ├── architecture.md
+│   ├── ml-training.md
 │   ├── api.md
 │   ├── database.md
 │   ├── security.md
@@ -544,52 +578,88 @@ Every data query includes a `userId` filter. The `/users/me` pattern ensures use
 
 ## 9. Pose Engine
 
-### Architecture
+### Architecture — Two-Layer Hybrid AI Pipeline
 
-The pose engine is a **shared package** (`packages/pose-engine`) consumed exclusively by the mobile app. It runs entirely on-device.
+The pose engine is split across:
+1. `apps/mobile`: Native camera acquisition, MediaPipe hardware delegate execution, and local model inference runtime (TFLite/ONNX).
+2. `packages/pose-engine`: Platform-agnostic normalization, feature extraction, model interfaces, state machines, and feedback logic.
+3. `ml/`: Dedicated offline training, evaluation, and export workspace.
 
 ```
-┌──────────────────────────────────────────────────┐
-│                  MOBILE DEVICE                    │
-│                                                   │
-│  Camera ──→ MediaPipe Pose Landmarker             │
-│                    │                              │
-│                    ▼                              │
-│            33 Body Landmarks                      │
-│            (x, y, z, visibility)                  │
-│                    │                              │
-│                    ▼                              │
-│          Temporal Smoothing                       │
-│          (EMA filter, jitter removal)             │
-│                    │                              │
-│                    ▼                              │
-│          Exercise Analyzer (pluggable)            │
-│          ┌─────────┼────────┐                     │
-│          ▼         ▼        ▼                     │
-│       Squat    Push-up   Plank                    │
-│       Analyzer  Analyzer  Analyzer                │
-│                    │                              │
-│                    ▼                              │
-│          Local State (Zustand)                    │
-│                                                   │
-│  ⚠️ NO VIDEO DATA LEAVES THIS DEVICE             │
-└──────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                  MOBILE DEVICE (ON-DEVICE ONLY)                  │
+│                                                                  │
+│  Camera Feed                                                     │
+│        │                                                         │
+│        ▼                                                         │
+│  [Pretrained MediaPipe Pose]  ── Layer 1: Edge Pose Estimator    │
+│        │                                                         │
+│        ▼                                                         │
+│  33 Normalized Landmarks (x, y, z, visibility)                   │
+│        │                                                         │
+│        ▼                                                         │
+│  [Temporal EMA Smoothing]     ── Jitter reduction                │
+│        │                                                         │
+│        ▼                                                         │
+│  [Normalization & Features]   ── Mid-hip center & 16-D vector    │
+│        │                                                         │
+│        ▼                                                         │
+│  [Custom Trained AI Model]    ── Layer 2: Exercise Classifier    │
+│        │ (Output: class probabilities & movement state)          │
+│        ▼                                                         │
+│  [Deterministic State Machine]── Layer 3: Rep & Hold Counter     │
+│        │                                                         │
+│        ▼                                                         │
+│  [Real-Time Form Feedback]    ── "Good depth", "Keep upright"    │
+│        │                                                         │
+│        ▼                                                         │
+│  Local Workout State (Zustand & Offline Storage)                 │
+│                                                                  │
+│  ⚠️ ZERO RAW CAMERA VIDEO OR FRAMES EVER LEAVE THIS DEVICE       │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-### ExerciseAnalyzer Interface
+### Model Versioning Specification
+Exported models are packaged with an immutable metadata manifest:
+```json
+{
+  "model_name": "fit-odyssey-exercise-model",
+  "model_version": "0.1.0",
+  "dataset_version": "1.0.0",
+  "training_date": "2026-09-29T21:30:00Z",
+  "classes": ["squat", "pushup", "plank", "idle"],
+  "input_shape": [1, 16],
+  "output_classes": ["squat", "pushup", "plank", "idle"],
+  "feature_configuration": {
+    "normalized_to": "mid_hip",
+    "scaled_by": "torso_length",
+    "features": 16
+  },
+  "model_format": "tflite"
+}
+```
+
+### ExerciseAnalyzer & Model Predictor Interfaces
 
 ```typescript
-interface ExerciseAnalyzer {
+export interface ModelPrediction {
+  predictedClass: string;
+  confidence: number;
+  probabilities: Record<string, number>;
+  movementState?: string;
+}
+
+export interface CustomModelPredictor {
+  readonly metadata: ModelMetadata;
+  predict(features: number[]): Promise<ModelPrediction> | ModelPrediction;
+}
+
+export interface ExerciseAnalyzer {
   readonly exerciseId: string;
   readonly name: string;
-  readonly requiredLandmarks: LandmarkType[];
 
   checkCalibration(landmarks: NormalizedLandmarks): CalibrationResult;
-  analyze(landmarks: NormalizedLandmarks, timestamp: number): AnalysisResult;
-  getState(): ExerciseState;
-  getReps(): number;
-  getMetrics(): ExerciseMetrics;
-  getFeedback(): FormFeedback[];
+  analyze(landmarks: NormalizedLandmarks, timestampMs: number): AnalysisResult;
   reset(): void;
 }
 ```
