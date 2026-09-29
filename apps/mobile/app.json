@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Fit Odyssey",
+    "slug": "fit-odyssey",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0d14"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fitodyssey.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0d14"
+      },
+      "package": "com.fitodyssey.app"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

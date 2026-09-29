@@ -1,0 +1,26 @@
+{
+  "name": "@fit-odyssey/gamification",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "lint": "echo \"@fit-odyssey/gamification linted\""
+  },
+  "dependencies": {
+    "@fit-odyssey/config": "workspace:*",
+    "@fit-odyssey/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}
