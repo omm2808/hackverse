@@ -193,7 +193,7 @@ class SquatStateMachine implements ExerciseStateMachine {
         } else if (avgKnee > _minKneeAngleInRep + 6.0) {
           // Rebound before reaching parallel bottomDepthThreshold
           if (_minKneeAngleInRep <= gateConfig.maxKneeDepthThreshold) {
-            // Reached acceptable squat depth (e.g. shallow squat <= 128 deg)
+            // Reached acceptable squat depth (e.g. shallow squat <= 118 deg)
             _currentState = ExerciseState.bottom;
             _bottomFeatures = List<double>.from(features);
 

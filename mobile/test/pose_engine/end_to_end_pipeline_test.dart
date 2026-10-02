@@ -4,6 +4,7 @@ import 'package:fit_odyssey/core/pose_engine/models/landmark.dart';
 import 'package:fit_odyssey/core/pose_engine/models/pose_frame.dart';
 import 'package:fit_odyssey/core/pose_engine/models/prediction_result.dart';
 import 'package:fit_odyssey/core/pose_engine/pose_intelligence_engine.dart';
+import 'package:fit_odyssey/core/pose_engine/state_machine/squat_state_machine.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 List<Landmark> createSyntheticSquatPose({
@@ -93,7 +94,7 @@ void main() {
       // Idle pause
       165.0, 165.0,
       // Rep 3: Shallow Squat (Bad form depth)
-      160.0, 145.0, 132.0, 122.0, 120.0, 122.0, 135.0, 150.0, 165.0,
+      160.0, 145.0, 132.0, 122.0, 110.0, 122.0, 135.0, 150.0, 165.0,
     ];
 
     final completedReps = <RepAnalysisResult>[];

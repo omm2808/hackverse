@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../home/ui/home_dashboard_screen.dart';
 import '../pose_engine/ui/camera_ml_validation_screen.dart';
 import '../pose_engine/ui/live_squat_test_screen.dart';
 import '../pose_engine/ui/live_workout_screen.dart';
@@ -90,7 +91,7 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/home',
-              builder: (context, state) => const _PlaceholderScreen(title: 'Home Dashboard'),
+              builder: (context, state) => const HomeDashboardScreen(),
             ),
           ],
         ),

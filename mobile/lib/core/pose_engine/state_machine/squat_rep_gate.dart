@@ -10,9 +10,10 @@ class SquatGateConfig {
   final double maxSingleKneeDescentThreshold; // degrees
   final double maxKneeDepthThreshold; // degrees (minimum depth required to be a squat rep)
 
-  // B. Squat-Specific Hip/Pelvis Movement
+  // B. Squat-Specific Hip/Pelvis Movement & Leg Compression
   final double minNormalizedHipDrop; // fraction of torso scale
   final double maxHipReturnTolerance; // fraction of torso scale
+  final double minLegCompressionRatio; // minimum (startHipAnkleDist - minHipAnkleDist) / torsoScale
 
   // C. Whole-Body Translation / Walking Rejection
   final double maxTorsoScaleChange; // fraction of start torso scale
@@ -38,16 +39,17 @@ class SquatGateConfig {
   const SquatGateConfig({
     this.maxBilateralKneeDiff = 32.0,
     this.maxSingleKneeDescentThreshold = 145.0,
-    this.maxKneeDepthThreshold = 128.0,
+    this.maxKneeDepthThreshold = 118.0,
     this.minNormalizedHipDrop = 0.09,
     this.maxHipReturnTolerance = 0.30,
+    this.minLegCompressionRatio = 0.15,
     this.maxTorsoScaleChange = 0.22,
     this.maxNetScaleDrift = 0.12,
     this.maxHorizontalTranslation = 0.35,
     this.maxAnkleDisplacement = 0.28,
     this.minDescendingFrames = 1,
     this.minBottomFrames = 1,
-    this.minAscendingFrames = 0,
+    this.minAscendingFrames = 1,
     this.minTotalFrames = 4,
     this.minRepDurationSeconds = 0.40,
     this.maxRepDurationSeconds = 8.0,
@@ -134,6 +136,15 @@ class BodyMetrics {
       rightAnkleY: rightAnkle.y,
     );
   }
+
+  /// Distance from mid-hip to mid-ankle in normalized camera frame coordinates.
+  double get hipAnkleDistance {
+    final midAnkleX = (leftAnkleX + rightAnkleX) / 2.0;
+    final midAnkleY = (leftAnkleY + rightAnkleY) / 2.0;
+    final dx = midAnkleX - midHipX;
+    final dy = midAnkleY - midHipY;
+    return math.sqrt(dx * dx + dy * dy);
+  }
 }
 
 /// Tracks the lifecycle and biomechanical telemetry of a single candidate squat rep.
@@ -155,9 +166,11 @@ class SquatCandidateTracker {
   double minRightKnee = 180.0;
   double maxKneeDiff = 0.0;
 
-  // B. Hip Vertical Trajectory
+  // B. Hip Vertical Trajectory & Leg Compression
   double maxHipDrop = 0.0; // max normalized downward displacement
   double endHipReturn = 0.0; // final return to start position
+  final double startHipAnkleDist;
+  double minHipAnkleDist;
 
   // C. Whole-Body Translation
   double maxTorsoScaleChange = 0.0;
@@ -178,7 +191,15 @@ class SquatCandidateTracker {
     required this.startTime,
     required this.startMetrics,
   })  : lastFrameTime = startTime,
-        finalTorsoScale = startMetrics.torsoScale;
+        finalTorsoScale = startMetrics.torsoScale,
+        startHipAnkleDist = startMetrics.hipAnkleDistance,
+        minHipAnkleDist = startMetrics.hipAnkleDistance;
+
+  /// Leg compression ratio: fraction of torso scale compressed between hips and ankles.
+  double get compressionRatio {
+    final scale = startMetrics.torsoScale > 0.02 ? startMetrics.torsoScale : 0.30;
+    return (startHipAnkleDist - minHipAnkleDist) / scale;
+  }
 
   void recordFrame({
     required PoseFrame frame,
@@ -218,6 +239,12 @@ class SquatCandidateTracker {
     final current = BodyMetrics.fromFrame(frame);
     final scale = startMetrics.torsoScale > 0.02 ? startMetrics.torsoScale : 0.30;
     finalTorsoScale = current.torsoScale;
+
+    // Track minimum hip-to-ankle distance (leg compression)
+    final currentHipAnkleDist = current.hipAnkleDistance;
+    if (currentHipAnkleDist < minHipAnkleDist) {
+      minHipAnkleDist = currentHipAnkleDist;
+    }
 
     // B. Hip vertical movement (Y increases downwards in camera coordinates)
     final hipDrop = (current.midHipY - startMetrics.midHipY) / scale;
@@ -301,6 +328,9 @@ class SquatRepGate {
       'maxHorizontalTranslation': candidate.maxHorizontalTranslation,
       'maxLeftAnkleDisp': candidate.maxLeftAnkleDisp,
       'maxRightAnkleDisp': candidate.maxRightAnkleDisp,
+      'startHipAnkleDist': candidate.startHipAnkleDist,
+      'minHipAnkleDist': candidate.minHipAnkleDist,
+      'compressionRatio': candidate.compressionRatio,
       'squatVotes': candidate.squatClassifierVotes,
       'totalVotes': candidate.totalClassifierVotes,
     };
@@ -341,13 +371,17 @@ class SquatRepGate {
       return SquatValidationResult.reject('REJECT_ASYMMETRIC_KNEES', diag);
     }
 
-    // B. Squat-Specific Hip/Pelvis Trajectory
+    // B. Squat-Specific Hip/Pelvis Trajectory & Leg Compression
     if (candidate.maxHipDrop < config.minNormalizedHipDrop) {
       return SquatValidationResult.reject('REJECT_INSUFFICIENT_HIP_DROP', diag);
     }
 
     if (candidate.endHipReturn > config.maxHipReturnTolerance) {
       return SquatValidationResult.reject('REJECT_HIP_NOT_RETURNED', diag);
+    }
+
+    if (candidate.compressionRatio < config.minLegCompressionRatio) {
+      return SquatValidationResult.reject('REJECT_INSUFFICIENT_LEG_COMPRESSION', diag);
     }
 
     // C. Whole-Body Translation / Walking Rejection (Toward/Away & Lateral)

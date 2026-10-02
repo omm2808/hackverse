@@ -18,6 +18,7 @@ List<Landmark> createSyntheticLandmarks({
   double scaleMultiplier = 1.0,
   double hipXOffset = 0.0,
   bool isSingleLegLift = false,
+  double? dropOverride,
 }) {
   final lms = List.generate(33, (i) => Landmark(
     index: i,
@@ -29,7 +30,7 @@ List<Landmark> createSyntheticLandmarks({
 
   // Torso base geometry
   final torsoLen = 0.35 * scaleMultiplier;
-  final drop = (170.0 - kneeAngle) / 170.0 * 0.14;
+  final drop = dropOverride ?? ((170.0 - kneeAngle) / 170.0 * 0.20);
   final hipY = 0.55 + drop;
   final shoulderY = hipY - torsoLen;
 
@@ -304,24 +305,35 @@ void main() {
     test('6. Shallow squat -> counts 1 rep but receives SHALLOW_DEPTH flag', () {
       final squatSM = SquatStateMachine(classifierService: service);
 
-      // Standing
+      // Frame 1: Standing
       var frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 0.0, isDetected: true);
       var feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
       squatSM.processFrame(frame, feats);
 
-      // Descend only to 125 deg (insufficient depth)
-      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 130), timestampSeconds: 0.5, isDetected: true);
+      // Frame 2: Descending (130 deg)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 130), timestampSeconds: 0.4, isDetected: true);
       feats = createSyntheticFeatures(leftKneeAngle: 130, rightKneeAngle: 130, leftElbowAngle: 165, rightElbowAngle: 165);
       squatSM.processFrame(frame, feats);
+      expect(squatSM.currentState, equals(ExerciseState.descending));
 
-      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 125), timestampSeconds: 1.0, isDetected: true);
-      feats = createSyntheticFeatures(leftKneeAngle: 125, rightKneeAngle: 125, leftElbowAngle: 165, rightElbowAngle: 165);
-      squatSM.processFrame(frame, feats); // inflection bottom
+      // Frame 3: Shallow depth inflection (115 deg)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 115), timestampSeconds: 0.8, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 115, rightKneeAngle: 115, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
 
-      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 135), timestampSeconds: 1.5, isDetected: true);
+      // Frame 4: Rebound to bottom (123 deg > 115 + 6)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 123), timestampSeconds: 1.2, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 123, rightKneeAngle: 123, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+      expect(squatSM.currentState, equals(ExerciseState.bottom));
+
+      // Frame 5: Ascending (135 deg)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 135), timestampSeconds: 1.6, isDetected: true);
       feats = createSyntheticFeatures(leftKneeAngle: 135, rightKneeAngle: 135, leftElbowAngle: 165, rightElbowAngle: 165);
-      squatSM.processFrame(frame, feats); // ascending
+      squatSM.processFrame(frame, feats);
+      expect(squatSM.currentState, equals(ExerciseState.ascending));
 
+      // Frame 6: Standing lockout (165 deg)
       frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 2.0, isDetected: true);
       feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
       final shallowRep = squatSM.processFrame(frame, feats); // rep complete
@@ -543,6 +555,239 @@ void main() {
       final pred = service.predict(feats, enforceExercise: 'squat');
       expect(pred.feedback, contains('Stand ready'));
       expect(pred.feedback, isNot(contains('Squat deeper')));
+    });
+
+    test('13. Walking forward 3 steps -> 0 squat reps (rejected by leg compression / depth gate)', () {
+      final squatSM = SquatStateMachine(classifierService: service);
+
+      // Standing frame at start
+      var frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 0.0, isDetected: true);
+      var feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Step 1: Forward step, swing knee 125°, scale grows, legs do not compress (dropOverride: 0.01)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 125, scaleMultiplier: 1.05, dropOverride: 0.01), timestampSeconds: 0.4, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 125, rightKneeAngle: 125, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 145, scaleMultiplier: 1.08, dropOverride: 0.005), timestampSeconds: 0.8, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 145, rightKneeAngle: 145, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Step 2: Next forward step, swing knee 122°, scale grows
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 122, scaleMultiplier: 1.14, dropOverride: 0.015), timestampSeconds: 1.2, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 122, rightKneeAngle: 122, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 145, scaleMultiplier: 1.18, dropOverride: 0.005), timestampSeconds: 1.6, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 145, rightKneeAngle: 145, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Step 3: Third forward step, swing knee 124°
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 124, scaleMultiplier: 1.22, dropOverride: 0.01), timestampSeconds: 2.0, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 124, rightKneeAngle: 124, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Final standing frame
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165, scaleMultiplier: 1.25, dropOverride: 0.0), timestampSeconds: 2.4, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      final res = squatSM.processFrame(frame, feats);
+
+      expect(res, isNull);
+      expect(squatSM.repCount, equals(0), reason: 'Walking forward 3 steps must not count as squat rep');
+    });
+
+    test('14. Walking backward 3 steps -> 0 squat reps', () {
+      final squatSM = SquatStateMachine(classifierService: service);
+
+      // Standing
+      var frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 0.0, isDetected: true);
+      var feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Step 1: Step back, scale shrinks
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 125, scaleMultiplier: 0.94, dropOverride: 0.01), timestampSeconds: 0.5, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 125, rightKneeAngle: 125, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Step 2: Step back further
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 125, scaleMultiplier: 0.88, dropOverride: 0.01), timestampSeconds: 1.0, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 125, rightKneeAngle: 125, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Step 3: Step back further and stand
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 125, scaleMultiplier: 0.82, dropOverride: 0.01), timestampSeconds: 1.5, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 125, rightKneeAngle: 125, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165, scaleMultiplier: 0.82, dropOverride: 0.0), timestampSeconds: 2.0, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      final res = squatSM.processFrame(frame, feats);
+
+      expect(res, isNull);
+      expect(squatSM.repCount, equals(0), reason: 'Walking backward 3 steps must not count as squat rep');
+    });
+
+    test('15. Forward/backward rocking -> 0 reps (net drift zero but no leg compression)', () {
+      final squatSM = SquatStateMachine(classifierService: service);
+
+      // Standing
+      var frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 0.0, isDetected: true);
+      var feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Rock forward: knees 126 deg, scale slightly up, legs uncompressed (dropOverride 0.01)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 126, scaleMultiplier: 1.05, dropOverride: 0.01), timestampSeconds: 0.5, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 126, rightKneeAngle: 126, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Rebound/sway
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 134, scaleMultiplier: 1.03, dropOverride: 0.008), timestampSeconds: 1.0, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 134, rightKneeAngle: 134, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Rock back to exact starting point: scale 1.0, knees return to standing 165
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165, scaleMultiplier: 1.0, dropOverride: 0.0), timestampSeconds: 1.5, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      final res = squatSM.processFrame(frame, feats);
+
+      expect(res, isNull);
+      expect(squatSM.repCount, equals(0), reason: 'Forward/backward rocking must not count as squat rep');
+    });
+
+    test('16. Alternating walking stride -> 0 reps (rejected by asymmetry / unilateral flexion)', () {
+      final squatSM = SquatStateMachine(classifierService: service);
+
+      // Standing
+      var frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 0.0, isDetected: true);
+      var feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Left swing (knee 120), right stance (knee 165) -> kneeDiff 45 > 32
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 140, isSingleLegLift: true), timestampSeconds: 0.5, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 120, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Right swing (knee 120), left stance (knee 165)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 140, isSingleLegLift: true), timestampSeconds: 1.0, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 120, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Both feet down standing
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 1.5, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      final res = squatSM.processFrame(frame, feats);
+
+      expect(res, isNull);
+      expect(squatSM.repCount, equals(0), reason: 'Alternating walking strides must not count as squat rep');
+    });
+
+    test('17. Genuine shallow squat around 115° -> 1 rep', () {
+      final squatSM = SquatStateMachine(classifierService: service);
+
+      // Frame 1: Standing
+      var frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 0.0, isDetected: true);
+      var feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Frame 2: Descending
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 135), timestampSeconds: 0.4, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 135, rightKneeAngle: 135, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+      expect(squatSM.currentState, equals(ExerciseState.descending));
+
+      // Frame 3: Shallow depth inflection (115° <= 118°)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 115), timestampSeconds: 0.8, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 115, rightKneeAngle: 115, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Frame 4: Rebound inflection to bottom (123° > 115 + 6)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 123), timestampSeconds: 1.2, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 123, rightKneeAngle: 123, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+      expect(squatSM.currentState, equals(ExerciseState.bottom));
+
+      // Frame 5: Ascending (135°)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 135), timestampSeconds: 1.6, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 135, rightKneeAngle: 135, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+      expect(squatSM.currentState, equals(ExerciseState.ascending));
+
+      // Frame 6: Standing lockout (165°) -> Rep complete!
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 2.0, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      final res = squatSM.processFrame(frame, feats);
+
+      expect(res, isNotNull);
+      expect(squatSM.repCount, equals(1));
+      expect(res!.formStatus, equals('bad'));
+      expect(res.activeFlags.contains('SHALLOW_DEPTH'), isTrue);
+    });
+
+    test('18. Genuine deep squat around 80° -> 1 rep', () {
+      final squatSM = SquatStateMachine(classifierService: service);
+
+      // Frame 1: Standing
+      var frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 0.0, isDetected: true);
+      var feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Frame 2: Descending
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 130), timestampSeconds: 0.5, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 130, rightKneeAngle: 130, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+      expect(squatSM.currentState, equals(ExerciseState.descending));
+
+      // Frame 3: Deep bottom inflection at 80° (<= 105°)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 80), timestampSeconds: 1.0, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 80, rightKneeAngle: 80, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+      expect(squatSM.currentState, equals(ExerciseState.bottom));
+
+      // Frame 4: Ascending (125°)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 125), timestampSeconds: 1.5, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 125, rightKneeAngle: 125, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+      expect(squatSM.currentState, equals(ExerciseState.ascending));
+
+      // Frame 5: Standing lockout (165°) -> Rep complete!
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 2.0, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      final res = squatSM.processFrame(frame, feats);
+
+      expect(res, isNotNull);
+      expect(squatSM.repCount, equals(1));
+      expect(res!.formStatus, equals('good'));
+      expect(res.activeFlags, isEmpty);
+    });
+
+    test('19. Bottom -> immediate lockout without an ascent frame -> rejected by minAscendingFrames', () {
+      final squatSM = SquatStateMachine(classifierService: service);
+
+      // Frame 1: Standing
+      var frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 0.0, isDetected: true);
+      var feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Frame 2: Descending
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 130), timestampSeconds: 0.5, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 130, rightKneeAngle: 130, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+
+      // Frame 3: Bottom (80°)
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 80), timestampSeconds: 1.0, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 80, rightKneeAngle: 80, leftElbowAngle: 165, rightElbowAngle: 165);
+      squatSM.processFrame(frame, feats);
+      expect(squatSM.currentState, equals(ExerciseState.bottom));
+
+      // Frame 4: Instantly jump straight to standing (165°) without ANY ascending frame
+      frame = PoseFrame(landmarks: createSyntheticLandmarks(kneeAngle: 165), timestampSeconds: 1.5, isDetected: true);
+      feats = createSyntheticFeatures(leftKneeAngle: 165, rightKneeAngle: 165, leftElbowAngle: 165, rightElbowAngle: 165);
+      final res = squatSM.processFrame(frame, feats);
+
+      expect(res, isNull, reason: 'Instantaneous jump from bottom to standing must be rejected');
+      expect(squatSM.repCount, equals(0));
+      expect(squatSM.lastRejectionReason, equals('REJECT_INSUFFICIENT_FRAMES'));
     });
   });
 
