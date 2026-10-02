@@ -59,7 +59,7 @@ class AppShell extends StatelessWidget {
 
 // Router configuration
 final GoRouter appRouter = GoRouter(
-  initialLocation: '/',
+  initialLocation: '/home',
   routes: [
     GoRoute(
       path: '/',

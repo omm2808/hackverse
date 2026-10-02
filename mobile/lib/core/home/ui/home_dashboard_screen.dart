@@ -673,19 +673,22 @@ class _WorkoutCardState extends State<_WorkoutCard>
                     ),
                     child: Icon(_exerciseIcon, size: 22, color: _accentColor),
                   ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      color: _accentColor.withValues(alpha: 0.12),
-                    ),
-                    child: Text(
-                      widget.workout.difficulty,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: _accentColor,
+                  Flexible(
+                    child: Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        color: _accentColor.withValues(alpha: 0.12),
+                      ),
+                      child: Text(
+                        widget.workout.difficulty,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: _accentColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
@@ -721,25 +724,31 @@ class _WorkoutCardState extends State<_WorkoutCard>
                   Icon(Icons.timer_outlined,
                       size: 13,
                       color: Colors.white.withValues(alpha: 0.4)),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${widget.workout.durationMinutes} min',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontWeight: FontWeight.w500,
+                  const SizedBox(width: 3),
+                  Flexible(
+                    child: Text(
+                      '${widget.workout.durationMinutes} min',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Icon(Icons.bolt_rounded,
                       size: 13, color: AppTheme.primaryGold.withValues(alpha: 0.7)),
                   const SizedBox(width: 3),
-                  Text(
-                    '${widget.workout.estimatedXp} XP',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.primaryGold.withValues(alpha: 0.7),
-                      fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: Text(
+                      '${widget.workout.estimatedXp} XP',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.primaryGold.withValues(alpha: 0.7),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
