@@ -1,0 +1,50 @@
+{
+  "@@locale": "or",
+  "appTitle": "ଫିଟ୍ ଓଡ଼ିଶୀ",
+  "navHome": "ମୂଳପୃଷ୍ଠା",
+  "navWorkout": "ବ୍ୟାୟାମ",
+  "navJourney": "ଐତିହ୍ୟ ଯାତ୍ରା",
+  "navLeaderboard": "ମାନ୍ୟତା ତାଲିକା",
+  "navProfile": "ପ୍ରୋଫାଇଲ୍",
+
+  "exerciseSquat": "ସ୍ୱାଟ୍ (ଉଠବସ)",
+  "exercisePushup": "ପୁସ୍-ଅପ୍",
+  "exercisePlank": "ପ୍ଲାଙ୍କ୍",
+
+  "calibrationTitle": "କ୍ୟାମେରା କାଲିବ୍ରେସନ୍",
+  "calibrationStepBody": "କ୍ୟାମେରା ଆଗରେ ସମ୍ପୂର୍ଣ୍ଣ ଶରୀର ଦେଖାଯିବା ପର୍ଯ୍ୟନ୍ତ ପଛକୁ ଯାଆନ୍ତୁ।",
+  "calibrationGood": "ଅବସ୍ଥିତି ସଠିକ୍ ଅଛି। ପ୍ରସ୍ତୁତ ରୁହନ୍ତୁ!",
+  "calibrationLowConfidence": "ଆଲୋକ କମ୍ ଅଛି କିମ୍ବା ଶରୀର ସ୍ପଷ୍ଟ ଦିଶୁନାହିଁ।",
+
+  "cueGoodDepth": "ଉତ୍ତମ ବସା!",
+  "cueGoLower": "ଆଉ ଟିକେ ତଳକୁ ବସନ୍ତୁ",
+  "cueChestUp": "ଛାତି ସିଧା ରଖନ୍ତୁ",
+  "cueKneesOut": "ଆଣ୍ଠୁ ବାହାରକୁ ରଖନ୍ତୁ",
+  "cueRaiseHips": "ଅଣ୍ଟା ଉପରକୁ ଉଠାନ୍ତୁ",
+  "cueLowerHips": "ଅଣ୍ଟା ସିଧା କରନ୍ତୁ",
+
+  "workoutComplete": "ବ୍ୟାୟାମ ସମ୍ପୂର୍ଣ୍ଣ!",
+  "repsCompleted": "ସମ୍ପୂର୍ଣ୍ଣ ରେପ୍ସ",
+  "holdDuration": "ଧାରଣ ସମୟ",
+  "formAccuracy": "ଫର୍ମ ସଠିକତା",
+  "xpEarned": "ଅର୍ଜିତ ଏକ୍ସପି (XP)",
+  "kmGained": "ଐତିହ୍ୟ କିଲୋମିଟର",
+  "syncPending": "ଅଫଲାଇନରେ ସାଇତା ହେଲା, ଇଣ୍ଟରନେଟ୍ ଆସିଲେ ସିଙ୍କ୍ ହେବ",
+  "syncSuccess": "ସର୍ଭର ସହ ସିଙ୍କ୍ ସଫଳ ହେଲା",
+
+  "heritageTitle": "ଓଡ଼ିଶା ସ୍ୱର୍ଣ୍ଣ ତ୍ରିଭୁଜ ଯାତ୍ରା",
+  "heritageSubtitle": "ଲିଙ୍ଗରାଜ ମନ୍ଦିରରୁ କୋଣାର୍କ ସୂର୍ଯ୍ୟ ମନ୍ଦିର (୬୫ କିମି)",
+  "checkpointUnlocked": "ନୂତନ ଐତିହ୍ୟ ସ୍ଥଳ ଅନଲକ୍ ହେଲା!",
+
+  "leaderboardTitle": "କଲେଜ ମାନ୍ୟତା ତାଲିକା",
+  "scopeGlobal": "ସର୍ବଭାରତୀୟ",
+  "scopeCollege": "କଲେଜ",
+  "scopeHostel": "ଛାତ୍ରାବାସ",
+  "periodWeekly": "ସାପ୍ତାହିକ",
+  "periodMonthly": "ମାସିକ",
+
+  "privacyConsentTitle": "ସମ୍ପୂର୍ଣ୍ଣ ଗୋପନୀୟତା",
+  "privacyConsentBody": "ଫିଟ୍ ଓଡ଼ିଶୀ ଆପଣଙ୍କ କ୍ୟାମେରା ଭିଡିଓକୁ କେବଳ ଫୋନ୍ ଭିତରେ ହିଁ ପ୍ରକ୍ରିୟାକରଣ କରେ। କୌଣସି ଫଟୋ ବା ଭିଡିଓ ସର୍ଭରକୁ ପଠାଯାଏ ନାହିଁ।",
+  "privacyAgree": "ମୁଁ ସହମତ ଏବଂ ଆଗକୁ ବଢ଼ନ୍ତୁ",
+  "under18Affirmation": "ମୋର ବୟସ ୧୮ ବର୍ଷ ବା ତହିଁରୁ ଅଧିକ।"
+}

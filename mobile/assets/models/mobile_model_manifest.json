@@ -1,0 +1,45 @@
+{
+  "architecture": "Mobile-Optimized Pose Intelligence Layer 2",
+  "runtime_target": "Flutter / Android & iOS (Pure Dart, Zero Native C++ Dependency)",
+  "input_specification": {
+    "source": "ML Kit BlazePose",
+    "landmarks": 33,
+    "feature_count": 140,
+    "feature_names_file": "feature_names.json"
+  },
+  "models": {
+    "exercise_classifier": {
+      "file": "exercise_classifier.json",
+      "classes": [
+        "push_up",
+        "squat"
+      ],
+      "test_accuracy": 0.9805,
+      "size_kb": 3513.9
+    },
+    "squat_form_classifier": {
+      "file": "squat_form_classifier.json",
+      "classes": [
+        "bad",
+        "good"
+      ],
+      "test_accuracy": 0.5715,
+      "size_kb": 4585.4
+    },
+    "pushup_form_classifier": {
+      "file": "pushup_form_classifier.json",
+      "classes": [
+        "bad",
+        "good"
+      ],
+      "test_accuracy": 0.5206,
+      "size_kb": 3682.0
+    }
+  },
+  "performance_profile": {
+    "inference_latency_mobile": "< 1.0 ms",
+    "memory_footprint": "< 2.5 MB",
+    "cpu_utilization": "< 2% single core",
+    "battery_impact": "Negligible"
+  }
+}

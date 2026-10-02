@@ -1,17 +1,278 @@
-# Fit Odyssey — Database Design & Schema Strategy
+# Fit Odyssey — Database Design & Schema Specification
 
-## Incremental Schema Plan
-In accordance with Phase 1 guidance, database models are created incrementally as their feature phases are developed, rather than dumping all 20+ tables up front:
+> **Engine:** PostgreSQL 15+ (Supabase Native)  
+> **Extension Dependencies:** `pgcrypto` (UUID generation), `pg_cron` (automated monthly snapshotting)  
+> **Security Baseline:** Row Level Security (RLS) is enabled on 100% of tables. Direct mutations from clients are disabled for all gameplay and metric tables.
 
-1. **Phase 2 & 3 (Auth & Core User)**: `User`, `Profile`, `PrivacyPreference`
-2. **Phase 6 (Workouts)**: `WorkoutSession`, `Exercise`, `ExerciseResult`, `WorkoutMetric`
-3. **Phase 7 (Progress & Streaks)**: `Streak`, `UserGoal`, `ProgressSnapshot`
-4. **Phase 8 (Heritage & Challenges)**: `HeritageJourney`, `HeritageCheckpoint`, `UserJourneyProgress`, `Challenge`, `ChallengeProgress`
-5. **Phase 9 (Gamification & Leaderboard)**: `XPTransaction`, `Badge`, `UserBadge`, `Leaderboard`, `LeaderboardEntry`
-6. **Phase 11 (Security/Audit)**: `AuditLog`
+---
 
-## Data Rules
-- Primary keys: UUIDv4
-- Foreign key cascading rules strictly enforced
-- Zero camera video or image storage in database
-- Sensitive auth secrets managed by Supabase Auth; backend stores user references and app state
+## 1. Relational Schema Definition
+
+All primary keys are UUIDs. Every foreign key relationship to `auth.users` is governed by `ON DELETE CASCADE` to support instantaneous user deletion under India's DPDP Act 2023.
+
+### 1.1. `profiles`
+User metadata, institutional affiliation, and privacy preferences.
+```sql
+CREATE TABLE public.profiles (
+  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  display_name text NOT NULL,
+  college text NOT NULL,
+  hostel text,
+  language text NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'or')),
+  weekly_goal_reps int NOT NULL DEFAULT 150,
+  xp_total bigint NOT NULL DEFAULT 0,
+  leaderboard_visibility text NOT NULL DEFAULT 'public' 
+    CHECK (leaderboard_visibility IN ('public', 'anonymous', 'hidden')),
+  consent_version text,
+  consent_accepted_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+### 1.2. `workouts`
+Aggregated workout records. Written exclusively by `submit_workout()`.
+```sql
+CREATE TABLE public.workouts (
+  id uuid PRIMARY KEY, -- Client-generated UUID for offline idempotency
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  exercise text NOT NULL CHECK (exercise IN ('squat', 'pushup', 'plank')),
+  reps int NOT NULL CHECK (reps >= 0),
+  duration_sec int NOT NULL CHECK (duration_sec >= 0),
+  form_accuracy numeric(5, 2) NOT NULL CHECK (form_accuracy >= 0 AND form_accuracy <= 100),
+  form_flags jsonb NOT NULL DEFAULT '{}'::jsonb,
+  started_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+### 1.3. `xp_events`
+Immutable ledger of all XP credits. Basis for period and scope leaderboards.
+```sql
+CREATE TABLE public.xp_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  amount int NOT NULL CHECK (amount > 0),
+  source text NOT NULL CHECK (source IN ('workout', 'streak_bonus_7', 'streak_bonus_30', 'checkpoint_unlock')),
+  source_id text, -- e.g. workout UUID or checkpoint slug
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+### 1.4. `streaks`
+Current and historical consistency tracking.
+```sql
+CREATE TABLE public.streaks (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  current int NOT NULL DEFAULT 0 CHECK (current >= 0),
+  longest int NOT NULL DEFAULT 0 CHECK (longest >= 0),
+  last_date date
+);
+```
+
+### 1.5. `goals`
+Adaptive goal progression audit log.
+```sql
+CREATE TABLE public.goals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  weekly_goal_reps int NOT NULL CHECK (weekly_goal_reps >= 50),
+  previous_goal int NOT NULL,
+  reason text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+### 1.6. `heritage_journeys` & `heritage_checkpoints`
+Virtual Odisha trek definitions and bilingual milestone stops.
+```sql
+CREATE TABLE public.heritage_journeys (
+  id text PRIMARY KEY, -- e.g. 'odisha_golden_triangle'
+  name_en text NOT NULL,
+  name_or text NOT NULL,
+  desc_en text NOT NULL,
+  desc_or text NOT NULL,
+  total_km numeric(6, 2) NOT NULL
+);
+
+CREATE TABLE public.heritage_checkpoints (
+  id text PRIMARY KEY, -- e.g. 'dhauli_shanti_stupa'
+  journey_id text NOT NULL REFERENCES public.heritage_journeys(id) ON DELETE CASCADE,
+  name_en text NOT NULL,
+  name_or text NOT NULL,
+  desc_en text NOT NULL,
+  desc_or text NOT NULL,
+  km numeric(6, 2) NOT NULL,
+  unlock_order int NOT NULL,
+  bonus_xp int NOT NULL DEFAULT 75
+);
+```
+
+### 1.7. `trek_progress` & `user_checkpoints`
+User virtual distance tracking and unlocked monument catalog.
+```sql
+CREATE TABLE public.trek_progress (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  journey_id text NOT NULL REFERENCES public.heritage_journeys(id) ON DELETE CASCADE,
+  km numeric(6, 2) NOT NULL DEFAULT 0.0 CHECK (km >= 0),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, journey_id)
+);
+
+CREATE TABLE public.user_checkpoints (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  checkpoint_id text NOT NULL REFERENCES public.heritage_checkpoints(id) ON DELETE CASCADE,
+  unlocked_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT uq_user_checkpoint UNIQUE (user_id, checkpoint_id)
+);
+```
+
+### 1.8. `monthly_snapshots`
+Frozen monthly performance summaries generated by `pg_cron`.
+```sql
+CREATE TABLE public.monthly_snapshots (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  month date NOT NULL,
+  data jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, month)
+);
+```
+
+### 1.9. `workout_rejections`
+Anti-cheat audit logs. Clients have ZERO access to this table.
+```sql
+CREATE TABLE public.workout_rejections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  reason text NOT NULL,
+  payload jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+### 1.10. `app_config`
+System-wide global game constants and thresholds.
+```sql
+CREATE TABLE public.app_config (
+  key text PRIMARY KEY,
+  value jsonb NOT NULL,
+  description text
+);
+```
+
+---
+
+## 2. Performance Indexes
+
+```sql
+-- Fast lookup of user workouts ordered by workout start time
+CREATE INDEX idx_workouts_user_started ON public.workouts (user_id, started_at DESC);
+
+-- Fast aggregation of XP events for weekly/monthly leaderboard calculation
+CREATE INDEX idx_xp_events_user_created ON public.xp_events (user_id, created_at DESC);
+
+-- Optimized institution-scoped leaderboard lookups
+CREATE INDEX idx_profiles_college_xp ON public.profiles (college, xp_total DESC);
+CREATE INDEX idx_profiles_hostel_xp ON public.profiles (hostel, xp_total DESC);
+
+-- Fast milestone sorting along heritage route
+CREATE INDEX idx_checkpoints_journey_order ON public.heritage_checkpoints (journey_id, unlock_order ASC);
+```
+
+---
+
+## 3. Row Level Security (RLS) Policies
+
+Row Level Security is explicitly enabled on all public schema tables:
+```sql
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.workouts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.xp_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.streaks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.goals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.heritage_journeys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.heritage_checkpoints ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.trek_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_checkpoints ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.monthly_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.workout_rejections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
+```
+
+### Policy Rules by Table:
+- **`profiles`:**
+  - `SELECT`: `auth.uid() = id` (or through leaderboard RPC).
+  - `UPDATE`: `auth.uid() = id` (only for editable fields: display name, hostel, language, consent, visibility).
+  - `INSERT`: Forbidden for clients (handled via Supabase `on_auth_user_created` trigger).
+  - `DELETE`: Forbidden for clients (handled via Edge Function account wipe).
+- **`workouts`, `xp_events`, `streaks`, `goals`, `trek_progress`, `user_checkpoints`, `monthly_snapshots`:**
+  - `SELECT`: Allowed ONLY where `auth.uid() = user_id`.
+  - `INSERT`, `UPDATE`, `DELETE`: **FORBIDDEN for clients.** Any direct client write attempt is rejected by RLS.
+- **`heritage_journeys`, `heritage_checkpoints`, `app_config`:**
+  - `SELECT`: Allowed for all `authenticated` and `anon` users.
+  - `INSERT`, `UPDATE`, `DELETE`: Forbidden.
+- **`workout_rejections`:**
+  - NO policies defined for `authenticated` or `anon`. Accessible only by server `service_role` and `SECURITY DEFINER` functions.
+
+---
+
+## 4. Database Triggers & Automation
+
+### 4.1. Automatic Profile Provisioning
+```sql
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, display_name, college, language)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'display_name', 'Athlete'),
+    COALESCE(NEW.raw_user_meta_data->>'college', 'Odisha Campus'),
+    COALESCE(NEW.raw_user_meta_data->>'language', 'en')
+  );
+  INSERT INTO public.streaks (user_id, current, longest)
+  VALUES (NEW.id, 0, 0);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+```
+
+### 4.2. Automated Monthly Snapshots (`pg_cron`)
+```sql
+-- Scheduled at 00:05 on the 1st of every month
+SELECT cron.schedule(
+  'close_month',
+  '5 0 1 * *',
+  $$
+  INSERT INTO public.monthly_snapshots (user_id, month, data)
+  SELECT 
+    w.user_id,
+    date_trunc('month', w.started_at)::date,
+    jsonb_build_object(
+      'total_workouts', count(w.id),
+      'total_reps', sum(w.reps),
+      'active_minutes', sum(w.duration_sec) / 60,
+      'avg_accuracy', avg(w.form_accuracy)
+    )
+  FROM public.workouts w
+  WHERE w.started_at >= (date_trunc('month', now()) - interval '1 month')
+    AND w.started_at < date_trunc('month', now())
+  GROUP BY w.user_id, date_trunc('month', w.started_at)::date
+  ON CONFLICT (user_id, month) DO UPDATE SET data = EXCLUDED.data;
+  $$
+);
+```
+
+---
+
+## 5. Migration Strategy & Data Retention
+
+- **Migration Files:** Monotonically ordered SQL files located in `/supabase/migrations/` (e.g. `20260930000000_init_schema.sql`).
+- **No Raw Video or Landmark Retention:** The database does NOT store video, frame data, or 33-point coordinates. Only numerical metrics (`reps`, `duration_sec`, `form_accuracy`, `form_flags`) are retained.
+- **Account Erasure:** Executed atomically by `supabaseAdmin.auth.admin.deleteUser(user_id)` inside the `delete-account` Edge Function. Foreign keys with `ON DELETE CASCADE` guarantee complete, instantaneous deletion across all relational tables.

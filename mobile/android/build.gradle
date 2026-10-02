@@ -1,0 +1,36 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+
+subprojects { project ->
+    afterEvaluate {
+        if (project.hasProperty("android")) {
+            project.android {
+                compileSdkVersion 36
+                compileSdk 36
+            }
+        }
+    }
+}
+
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+subprojects { subproject ->
+    subproject.plugins.withId("com.android.library") {
+        subproject.dependencies.add("compileOnly", "androidx.concurrent:concurrent-futures:1.2.0")
+    }
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}

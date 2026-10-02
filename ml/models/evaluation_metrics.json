@@ -1,0 +1,232 @@
+{
+  "exercise_classifier": {
+    "name": "RandomForest Exercise Classifier",
+    "labels": [
+      "push_up",
+      "squat"
+    ],
+    "train_accuracy": 0.9846305447699729,
+    "val_accuracy": 0.9857669664229799,
+    "test_accuracy": 0.9805395842547545,
+    "test_precision": 0.9841609589041096,
+    "test_recall": 0.9844419069369112,
+    "test_f1": 0.9843014128728415,
+    "confusion_matrix": [
+      [
+        4188,
+        111
+      ],
+      [
+        109,
+        6897
+      ]
+    ],
+    "classification_report": {
+      "push_up": {
+        "precision": 0.9746334652082849,
+        "recall": 0.9741800418702024,
+        "f1-score": 0.9744067007910656,
+        "support": 4299.0
+      },
+      "squat": {
+        "precision": 0.9841609589041096,
+        "recall": 0.9844419069369112,
+        "f1-score": 0.9843014128728415,
+        "support": 7006.0
+      },
+      "accuracy": 0.9805395842547545,
+      "macro avg": {
+        "precision": 0.9793972120561972,
+        "recall": 0.9793109744035569,
+        "f1-score": 0.9793540568319535,
+        "support": 11305.0
+      },
+      "weighted avg": {
+        "precision": 0.980537898718497,
+        "recall": 0.9805395842547545,
+        "f1-score": 0.9805387090037964,
+        "support": 11305.0
+      }
+    }
+  },
+  "squat_form_classifier": {
+    "name": "RandomForest Squat Form Classifier",
+    "labels": [
+      "bad",
+      "good"
+    ],
+    "train_accuracy": 0.8359616085530313,
+    "val_accuracy": 0.5695260477869174,
+    "test_accuracy": 0.5715101341707108,
+    "test_precision": 0.5593773537534522,
+    "test_recall": 0.6411510791366907,
+    "test_f1": 0.5974792169482435,
+    "confusion_matrix": [
+      [
+        1776,
+        1755
+      ],
+      [
+        1247,
+        2228
+      ]
+    ],
+    "classification_report": {
+      "bad": {
+        "precision": 0.5874958650347337,
+        "recall": 0.5029736618521665,
+        "f1-score": 0.5419591089411047,
+        "support": 3531.0
+      },
+      "good": {
+        "precision": 0.5593773537534522,
+        "recall": 0.6411510791366907,
+        "f1-score": 0.5974792169482435,
+        "support": 3475.0
+      },
+      "accuracy": 0.5715101341707108,
+      "macro avg": {
+        "precision": 0.573436609394093,
+        "recall": 0.5720623704944285,
+        "f1-score": 0.5697191629446741,
+        "support": 7006.0
+      },
+      "weighted avg": {
+        "precision": 0.573548987115457,
+        "recall": 0.5715101341707108,
+        "f1-score": 0.5694972727042801,
+        "support": 7006.0
+      }
+    }
+  },
+  "pushup_form_classifier": {
+    "name": "RandomForest Push-up Form Classifier",
+    "labels": [
+      "bad",
+      "good"
+    ],
+    "train_accuracy": 0.8771472221187167,
+    "val_accuracy": 0.5239275500476644,
+    "test_accuracy": 0.520586182833217,
+    "test_precision": 0.5267369952710076,
+    "test_recall": 0.6557971014492754,
+    "test_f1": 0.58422432923139,
+    "confusion_matrix": [
+      [
+        790,
+        1301
+      ],
+      [
+        760,
+        1448
+      ]
+    ],
+    "classification_report": {
+      "bad": {
+        "precision": 0.5096774193548387,
+        "recall": 0.37780966044954567,
+        "f1-score": 0.43394671793463335,
+        "support": 2091.0
+      },
+      "good": {
+        "precision": 0.5267369952710076,
+        "recall": 0.6557971014492754,
+        "f1-score": 0.58422432923139,
+        "support": 2208.0
+      },
+      "accuracy": 0.520586182833217,
+      "macro avg": {
+        "precision": 0.5182072073129231,
+        "recall": 0.5168033809494106,
+        "f1-score": 0.5090855235830116,
+        "support": 4299.0
+      },
+      "weighted avg": {
+        "precision": 0.5184393508791235,
+        "recall": 0.520586182833217,
+        "f1-score": 0.5111304736320603,
+        "support": 4299.0
+      }
+    }
+  },
+  "joint_classifier": {
+    "name": "RandomForest 4-Class Joint Classifier",
+    "labels": [
+      "push_up_bad",
+      "push_up_good",
+      "squat_bad",
+      "squat_good"
+    ],
+    "train_accuracy": 0.8513354512295565,
+    "val_accuracy": 0.5496538785016497,
+    "test_accuracy": 0.5427686864219372,
+    "test_precision": 0.5435293028140292,
+    "test_recall": 0.5427686864219372,
+    "test_f1": 0.5361381330675666,
+    "confusion_matrix": [
+      [
+        726,
+        1316,
+        30,
+        19
+      ],
+      [
+        720,
+        1426,
+        44,
+        18
+      ],
+      [
+        22,
+        31,
+        1681,
+        1797
+      ],
+      [
+        27,
+        40,
+        1105,
+        2303
+      ]
+    ],
+    "classification_report": {
+      "push_up_bad": {
+        "precision": 0.48561872909698994,
+        "recall": 0.3472022955523673,
+        "f1-score": 0.4049079754601227,
+        "support": 2091.0
+      },
+      "push_up_good": {
+        "precision": 0.5069321009598293,
+        "recall": 0.6458333333333334,
+        "f1-score": 0.5680143397729536,
+        "support": 2208.0
+      },
+      "squat_bad": {
+        "precision": 0.5877622377622378,
+        "recall": 0.4760691022373265,
+        "f1-score": 0.5260522609920201,
+        "support": 3531.0
+      },
+      "squat_good": {
+        "precision": 0.55668358714044,
+        "recall": 0.6627338129496403,
+        "f1-score": 0.6050972149238045,
+        "support": 3475.0
+      },
+      "accuracy": 0.5427686864219372,
+      "macro avg": {
+        "precision": 0.5342491637398743,
+        "recall": 0.5329596360181669,
+        "f1-score": 0.5260179477872252,
+        "support": 11305.0
+      },
+      "weighted avg": {
+        "precision": 0.5435293028140292,
+        "recall": 0.5427686864219372,
+        "f1-score": 0.5361381330675666,
+        "support": 11305.0
+      }
+    }
+  }
+}

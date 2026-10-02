@@ -1,0 +1,53 @@
+{
+  "@@locale": "en",
+  "appTitle": "Fit Odyssey",
+  "@appTitle": {
+    "description": "Main application title"
+  },
+  "navHome": "Home",
+  "navWorkout": "Workout",
+  "navJourney": "Journey",
+  "navLeaderboard": "Leaderboard",
+  "navProfile": "Profile",
+
+  "exerciseSquat": "Squats",
+  "exercisePushup": "Push-ups",
+  "exercisePlank": "Plank",
+
+  "calibrationTitle": "Camera Calibration",
+  "calibrationStepBody": "Step back until your entire body is visible in the frame.",
+  "calibrationGood": "Position calibrated. Get ready!",
+  "calibrationLowConfidence": "Low confidence. Adjust lighting or camera angle.",
+
+  "cueGoodDepth": "Good depth!",
+  "cueGoLower": "Go slightly lower",
+  "cueChestUp": "Keep chest upright",
+  "cueKneesOut": "Push knees outward",
+  "cueRaiseHips": "Raise your hips",
+  "cueLowerHips": "Lower your hips",
+
+  "workoutComplete": "Workout Complete!",
+  "repsCompleted": "Reps Completed",
+  "holdDuration": "Hold Duration",
+  "formAccuracy": "Form Accuracy",
+  "xpEarned": "XP Earned",
+  "kmGained": "Heritage KM Gained",
+  "syncPending": "Saved offline, will sync when connected",
+  "syncSuccess": "Synced with server",
+
+  "heritageTitle": "Odisha Golden Triangle Trek",
+  "heritageSubtitle": "Lingaraj Temple to Konark Sun Temple (65 km)",
+  "checkpointUnlocked": "Checkpoint Unlocked!",
+
+  "leaderboardTitle": "Campus Leaderboard",
+  "scopeGlobal": "Global",
+  "scopeCollege": "College",
+  "scopeHostel": "Hostel",
+  "periodWeekly": "Weekly",
+  "periodMonthly": "Monthly",
+
+  "privacyConsentTitle": "Privacy by Design",
+  "privacyConsentBody": "Fit Odyssey processes your camera feed entirely on your phone. No videos, photos, or raw landmark coordinates are ever saved or uploaded to the cloud.",
+  "privacyAgree": "I Agree & Continue",
+  "under18Affirmation": "I affirm that I am 18 years of age or older."
+}

@@ -38,3 +38,24 @@ Thumbs.db
 # Prisma
 dev.db
 dev.db-journal
+
+# Flutter / Dart
+**/.dart_tool/
+**/build/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/pubspec.lock.bak
+
+# Android
+**/.gradle/
+**/local.properties
+
+# ML Large Datasets (raw videos & processed parquet datasets)
+ml/dataset/raw/
+ml/dataset/processed/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
